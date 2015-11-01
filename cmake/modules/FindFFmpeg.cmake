@@ -1,166 +1,118 @@
-# Locate ffmpeg
-# This module defines
-# FFmpeg_LIBRARIES
-# FFmpeg_FOUND, if false, do not try to link to ffmpeg
-# FFmpeg_INCLUDE_DIR, where to find the headers
+############################################################################
+# FindFFMpeg.txt
+# Copyright (C) 2014  Belledonne Communications, Grenoble France
 #
-# $FFMPEG_DIR is an environment variable that would
-# correspond to the ./configure --prefix=$FFMPEG_DIR
+############################################################################
 #
-# (Created by Robert Osfield for OpenSceneGraph.)
-# Adapted by Bernardt Duvenhage for FLITr.
-# Modified by Korneliusz Jarzebski for DreamDesktop Plasma Wallpaper
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+############################################################################
+#
+# - Find the ffmpeg include file and library
+#
+#  FFMPEG_FOUND - system has ffmpeg
+#  FFMPEG_INCLUDE_DIRS - the ffmpeg include directory
+#  FFMPEG_LIBRARIES - The libraries needed to use ffmpeg
 
-IF("${FFmpeg_ROOT}" STREQUAL "")
-    SET(FFmpeg_ROOT "$ENV{FFMPEG_DIR}")# CACHE PATH "Path to search for custom FFmpeg library.")
-ENDIF()
+include(CMakePushCheckState)
+include(CheckSymbolExists)
 
-MACRO(FFmpeg_FIND varname shortname headername)
+set(_FFMPEG_ROOT_PATHS
+	${CMAKE_INSTALL_PREFIX}
+)
 
-SET(FFmpeg_${varname}_INCLUDE_DIRS FFmpeg_${varname}_INCLUDE_DIRS-NOTFOUND)
-SET(FFmpeg_${varname}_LIBRARIES FFmpeg_${varname}_LIBRARIES-NOTFOUND)
-SET(FFmpeg_${varname}_FOUND FALSE)
+find_path(LIBAVCODEC_INCLUDE_DIRS
+	NAMES libavcodec/avcodec.h
+	HINTS _FFMPEG_ROOT_PATHS
+	PATH_SUFFIXES include
+)
+if(LIBAVCODEC_INCLUDE_DIRS)
+	set(HAVE_LIBAVCODEC_AVCODEC_H 1)
+endif()
+find_path(LIBAVFORMAT_INCLUDE_DIRS
+	NAMES libavformat/avformat.h
+	HINTS _FFMPEG_ROOT_PATHS
+	PATH_SUFFIXES include
+)
+if(LIBAVFORMAT_INCLUDE_DIRS)
+    set(HAVE_LIBAVFORMAT_AVFORMAT_H 1)
+endif()
+find_path(LIBAVUTIL_INCLUDE_DIRS
+	NAMES libavutil/avutil.h
+	HINTS _FFMPEG_ROOT_PATHS
+	PATH_SUFFIXES include
+)
+if(LIBAVUTIL_INCLUDE_DIRS)
+    set(HAVE_LIBAVUTIL_AVUTIL_H 1)
+endif()
+find_path(LIBSWSCALE_INCLUDE_DIRS
+	NAMES libswscale/swscale.h
+	HINTS _FFMPEG_ROOT_PATHS
+	PATH_SUFFIXES include
+)
+if(LIBSWSCALE_INCLUDE_DIRS)
+	set(HAVE_LIBSWSCALE_SWSCALE_H 1)
+endif()
 
-MARK_AS_ADVANCED(FORCE FFmpeg_${varname}_INCLUDE_DIRS)
-MARK_AS_ADVANCED(FORCE FFmpeg_${varname}_LIBRARIES)
-MARK_AS_ADVANCED(FORCE FFmpeg_${varname}_FOUND)
+find_library(LIBAVCODEC_LIBRARIES
+	NAMES avcodec
+	HINTS _FFMPEG_ROOT_PATHS
+	PATH_SUFFIXES bin lib
+)
+find_library(LIBAVFORMAT_LIBRARIES
+	NAMES avformat
+	HINTS _FFMPEG_ROOT_PATHS
+	PATH_SUFFIXES bin lib
+)
+find_library(LIBAVUTIL_LIBRARIES
+	NAMES avutil
+	HINTS _FFMPEG_ROOT_PATHS
+	PATH_SUFFIXES bin lib
+)
+find_library(LIBSWSCALE_LIBRARIES
+	NAMES swscale
+	HINTS _FFMPEG_ROOT_PATHS
+	PATH_SUFFIXES bin lib
+)
 
-    IF(FFmpeg_NO_SYSTEM_PATHS)
-        FIND_PATH(FFmpeg_${varname}_INCLUDE_DIRS lib${shortname}/${headername}
-            PATHS
-            ${FFmpeg_ROOT}
-            ${FFmpeg_ROOT}/include
-            PATH_SUFFIXES ffmpeg
-            DOC "Location of FFmpeg Headers"
-            NO_DEFAULT_PATH
-        )
-    ELSE()
-        FIND_PATH(FFmpeg_${varname}_INCLUDE_DIRS lib${shortname}/${headername}
-            PATHS
-            ${FFmpeg_ROOT}
-            ${FFmpeg_ROOT}/include
-            /usr/local/include
-            /usr/include
-            PATH_SUFFIXES ffmpeg
-            DOC "Location of FFmpeg Headers"
-        )
-    ENDIF()
+set(FFMPEG_INCLUDE_DIRS ${LIBAVCODEC_INCLUDE_DIRS} ${LIBAVFORMAT_INCLUDE_DIRS} ${LIBSWSCALE_INCLUDE_DIRS} ${LIBAVUTIL_INCLUDE_DIRS})
+set(FFMPEG_LIBRARIES ${LIBAVCODEC_LIBRARIES} ${LIBAVFORMAT_LIBRARIES} ${LIBSWSCALE_LIBRARIES} ${LIBAVUTIL_LIBRARIES})
+list(REMOVE_DUPLICATES FFMPEG_INCLUDE_DIRS)
+list(REMOVE_DUPLICATES FFMPEG_LIBRARIES)
 
-    IF(FFmpeg_NO_SYSTEM_PATHS)
-        FIND_PATH(FFmpeg_${varname}_INCLUDE_DIRS ${headername}
-            PATHS
-            ${FFmpeg_ROOT}
-            ${FFmpeg_ROOT}/include
-            DOC "Location of FFmpeg Headers"
-            PATH_SUFFIXES ffmpeg
-            NO_DEFAULT_PATH
-        )
-    ELSE()
-        FIND_PATH(FFmpeg_${varname}_INCLUDE_DIRS ${headername}
-            PATHS
-            ${FFmpeg_ROOT}
-            ${FFmpeg_ROOT}/include
-            $ENV{FFMPEG_DIR}/include
-            /usr/local/include
-            /usr/include
-            PATH_SUFFIXES ffmpeg
-            DOC "Location of FFmpeg Headers"
-        )
-    ENDIF()
+if(FFMPEG_LIBRARIES)
+	cmake_push_check_state(RESET)
+	list(APPEND CMAKE_REQUIRED_INCLUDES ${FFMPEG_INCLUDE_DIRS})
+	list(APPEND CMAKE_REQUIRED_LIBRARIES ${FFMPEG_LIBRARIES})
+	if(MSVC)
+		list(APPEND CMAKE_REQUIRED_DEFINITIONS -Dinline=__inline)
+	endif()
+	check_symbol_exists(avcodec_get_context_defaults3 "libavcodec/avcodec.h" HAVE_FUN_avcodec_get_context_defaults3)
+	check_symbol_exists(avcodec_open2 "libavcodec/avcodec.h" HAVE_FUN_avcodec_open2)
+	check_symbol_exists(avcodec_encode_video2 "libavcodec/avcodec.h" HAVE_FUN_avcodec_encode_video2)
+	cmake_pop_check_state()
+endif()
 
-    IF(FFmpeg_NO_SYSTEM_PATHS)
-        FIND_LIBRARY(FFmpeg_${varname}_LIBRARIES
-            NAMES ${shortname}
-            PATHS
-            ${FFmpeg_ROOT}
-            ${FFmpeg_ROOT}/lib${shortname}
-            ${FFmpeg_ROOT}/lib
-            DOC "Location of FFmpeg Libraries"
-            NO_DEFAULT_PATH
-        )
-    ELSE()
-        FIND_LIBRARY(FFmpeg_${varname}_LIBRARIES
-            NAMES ${shortname}
-            PATHS
-            ${FFmpeg_ROOT}
-            ${FFmpeg_ROOT}/lib
-            $ENV{FFMPEG_DIR}/lib
-            /usr/local/lib
-            /usr/local/lib64
-            /usr/lib
-            /usr/lib64
-            /usr/lib/i386-linux-gnu
-            DOC "Location of FFmpeg Libraries"
-        )
-    ENDIF()
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(FFMpeg
+	DEFAULT_MSG
+	FFMPEG_INCLUDE_DIRS FFMPEG_LIBRARIES
+    LIBAVCODEC_INCLUDE_DIRS LIBAFORMAT_INCLUDE_DIRS LIBSWSCALE_INCLUDE_DIRS LIBAVUTIL_INCLUDE_DIRS
+    LIBAVCODEC_LIBRARIES LIBAVFORMAT_LIBRARIES LIBSWSCALE_LIBRARIES LIBAVUTIL_LIBRARIES
+)
 
-    IF (FFmpeg_${varname}_LIBRARIES AND FFmpeg_${varname}_INCLUDE_DIRS)
-        SET(FFmpeg_${varname}_FOUND TRUE)
-    ELSE()
-        SET(FFmpeg_${varname}_FOUND FALSE)
-    ENDIF()
-
-    #MESSAGE("${FFmpeg_${varname}_INCLUDE_DIRS}")
-    #MESSAGE("${FFmpeg_${varname}_LIBRARIES}")
-    #MESSAGE("  FOUND ${FFmpeg_${varname}_FOUND}")
-
-ENDMACRO(FFmpeg_FIND)
-
-SET(STDINT_OK TRUE)
-
-SET(FFmpeg_INCLUDE_DIRS FFmpeg_INCLUDE_DIRS-NOTFOUND)# CACHE STRING "docstring")
-SET(FFmpeg_LIBRARIES FFmpeg_LIBRARIES-NOTFOUND)# CACHE STRING "docstring")
-SET(FFmpeg_FOUND FALSE)
-
-
-FFmpeg_FIND(LIBAVFORMAT avformat avformat.h)
-FFmpeg_FIND(LIBAVDEVICE avdevice avdevice.h)
-FFmpeg_FIND(LIBAVCODEC  avcodec  avcodec.h)
-FFmpeg_FIND(LIBAVUTIL   avutil   avutil.h)
-FFmpeg_FIND(LIBSWSCALE  swscale  swscale.h)
-
-MARK_AS_ADVANCED(CLEAR FFmpeg_LIBAVFORMAT_LIBRARIES)
-
-IF(FFmpeg_LIBAVFORMAT_FOUND AND FFmpeg_LIBAVDEVICE_FOUND AND FFmpeg_LIBAVCODEC_FOUND AND FFmpeg_LIBAVUTIL_FOUND AND FFmpeg_LIBSWSCALE_FOUND AND STDINT_OK)
-    SET(FFmpeg_FOUND TRUE)
-
-    SET(FFmpeg_INCLUDE_DIRS
-        ${FFmpeg_LIBAVFORMAT_INCLUDE_DIRS} #${FFmpeg_LIBAVFORMAT_INCLUDE_DIRS}/libavformat
-        ${FFmpeg_LIBAVDEVICE_INCLUDE_DIRS} #${FFmpeg_LIBAVDEVICE_INCLUDE_DIRS}/libavdevice
-        ${FFmpeg_LIBAVCODEC_INCLUDE_DIRS} #${FFmpeg_LIBAVCODEC_INCLUDE_DIRS}/libavcodec
-        ${FFmpeg_LIBAVUTIL_INCLUDE_DIRS} #${FFmpeg_LIBAVUTIL_INCLUDE_DIRS}/libavutil
-        ${FFmpeg_LIBSWSCALE_INCLUDE_DIRS} #${FFmpeg_LIBSWSCALE_INCLUDE_DIRS}/libswscale
-        #CACHE STRING  "docstring"
-    )
-
-    IF (FFmpeg_STDINT_INCLUDE_DIR)
-        SET(FFmpeg_INCLUDE_DIRS
-            ${FFmpeg_INCLUDE_DIRS}
-            ${FFmpeg_STDINT_INCLUDE_DIR}
-            #${FFmpeg_STDINT_INCLUDE_DIR}/libavformat
-            #${FFmpeg_STDINT_INCLUDE_DIR}/libavdevice
-            #${FFmpeg_STDINT_INCLUDE_DIR}/libavcodec
-            #${FFmpeg_STDINT_INCLUDE_DIR}/libavutil
-            #${FFmpeg_STDINT_INCLUDE_DIR}/libswscale
-            #CACHE  STRING  "docstring"
-        )
-    ENDIF()
-
-    SET(FFmpeg_LIBRARIES
-        ${FFmpeg_LIBAVFORMAT_LIBRARIES}
-        ${FFmpeg_LIBAVDEVICE_LIBRARIES}
-        ${FFmpeg_LIBAVCODEC_LIBRARIES}
-        ${FFmpeg_LIBAVUTIL_LIBRARIES}
-        ${FFmpeg_LIBSWSCALE_LIBRARIES}
-        #CACHE  STRING  "docstring"
-    )
-
-    #MESSAGE("  ${FFmpeg_INCLUDE_DIRS}")
-    #MESSAGE("  ${FFmpeg_LIBRARIES}")
-
-ELSE()
-    MESSAGE("Could not find FFmpeg")
-    SET(FFmpeg_INCLUDE_DIRS FFmpeg_INCLUDE_DIRS-NOTFOUND)# CACHE  STRING  "docstring")
-    SET(FFmpeg_LIBRARIES FFmpeg_LIBRARIES-NOTFOUND)# CACHE  STRING  "docstring")
-    SET(FFmpeg_FOUND FALSE)
-ENDIF()
+mark_as_advanced(FFMPEG_INCLUDE_DIRS FFMPEG_LIBRARIES
+    LIBAVCODEC_INCLUDE_DIRS LIBAVFORMAT_INCLUDE_DIRS LIBSWSCALE_INCLUDE_DIRS LIBAVUTIL_INCLUDE_DIRS
+    LIBAVCODEC_LIBRARIES LIBAVFORMAT_LIBRARIES LIBSWSCALE_LIBRARIES LIBAVUTIL_LIBRARIES)
